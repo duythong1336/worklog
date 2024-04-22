@@ -1,6 +1,21 @@
 version: '3'
 
 services:
+
+  db:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'TimekeepingExnodes'
+      MYSQL_USER: 'gkayz'
+      MYSQL_PASSWORD: '123456789'
+      MYSQL_ROOT_PASSWORD: '123456789'
+    ports:
+      - '3307:3306'
+    networks:
+      - my_network
+
+
   web:
     build: .
     volumes:
@@ -12,6 +27,17 @@ services:
       - 6969:6969
     env_file:
       - ./.env.dev
+    networks:
+      - my_network
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    
+networks:
+  my_network:
+    driver: bridge
+    
+    
+
   # nginx:
   #   build: ./nginx
   #   volumes:

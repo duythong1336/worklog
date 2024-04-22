@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # python manage.py flush --no-input
-cd app/
+cd Worklog/
 python manage.py migrate
 python manage.py collectstatic --no-input
 python manage.py runserver 0.0.0.0:8000
