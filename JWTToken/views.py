@@ -56,13 +56,18 @@ class LogoutView(APIView):
                     # Cập nhật trạng thái token
                     jwt_token.is_expired = True
                     jwt_token.save()
-                    return Response({'detail': 'Logged out successfully.'}, status=status.HTTP_200_OK)
+                    
+                    response = format_respone(success=True, status=status.HTTP_200_OK, message="Logged out successfully", data=[])
+                    return Response(response, status=response.get('status'))
                 else:
-                    return Response({'detail': 'Token not found in database.'}, status=status.HTTP_404_NOT_FOUND)
+                    response = format_respone(success=False, status=status.HTTP_404_NOT_FOUND, message="Token not found in database", data=[])
+                    return Response(response, status=response.get('status'))
             else:
-                return Response({'detail': 'No token provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+                return Response(response, status=response.get('status'))
         except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            response = format_respone(success=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR, message=str(e), data=[])
+            return Response(response, status=response.get('status'))
         
 class LogoutAllView(APIView):
     def post(self, request):
@@ -71,14 +76,21 @@ class LogoutAllView(APIView):
             if user.is_authenticated:
 
                 jwt_tokens = JWTToken.objects.filter(user_id=user.id)
-
-                jwt_tokens.update(is_expired=True)
-                # print(jwt_tokens)
-                return Response({'detail': 'Logged out all sessions successfully.'}, status=status.HTTP_200_OK)
+                
+                if jwt_tokens:
+                    jwt_tokens.update(is_expired=True)
+                    # print(jwt_tokens)
+                    response = format_respone(success=True, status=status.HTTP_200_OK, message="Logged out all sessions successfully", data=[])
+                    return Response(response, status=response.get('status'))
+                else:
+                    response = format_respone(success=False, status=status.HTTP_404_NOT_FOUND, message="Token not found in database", data=[])
+                    return Response(response, status=response.get('status'))
             else:
-                return Response({'detail': 'User is not authenticated.'}, status=status.HTTP_401_UNAUTHORIZED)
+                response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+                return Response(response, status=response.get('status'))
         except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            response = format_respone(success=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR, message=str(e), data=[])
+            return Response(response, status=response.get('status'))
         
 class LogoutDevicesView(APIView):
     def post(self, request):
@@ -90,12 +102,18 @@ class LogoutDevicesView(APIView):
                 jwt_tokens = JWTToken.objects.filter(user_id=user.id, device_id__in=device_ids)
                 # print(user.id)
                 # print(device_ids)
-                
+                if jwt_tokens:
                 # Cập nhật trạng thái is_expired của các mã thông báo này thành True
-                jwt_tokens.update(is_expired=True)
+                    jwt_tokens.update(is_expired=True)
                 # print(jwt_tokens)
-                return Response({'detail': 'Logged out specified devices successfully.'}, status=status.HTTP_200_OK)
+                    response = format_respone(success=True, status=status.HTTP_200_OK, message="Logged out specified devices successfully", data=[])
+                    return Response(response, status=response.get('status'))
+                else:
+                    response = format_respone(success=False, status=status.HTTP_404_NOT_FOUND, message="Token not found in database", data=[])
+                    return Response(response, status=response.get('status'))
             else:
-                return Response({'detail': 'User is not authenticated.'}, status=status.HTTP_401_UNAUTHORIZED)
+                response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+                return Response(response, status=response.get('status'))
         except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            response = format_respone(success=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR, message=str(e), data=[])
+            return Response(response, status=response.get('status'))

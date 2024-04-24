@@ -25,7 +25,9 @@ urlpatterns = [
         [
             path('', include('Employee.urls')),
             path('', include('Department.urls')),
-            path('', include('JWTToken.urls'))
+            path('', include('JWTToken.urls')),
+            path('', include('LeaveRequest.urls')),
+            path('', include('Timekeeping.urls')),
         ],
 ))
 ]
