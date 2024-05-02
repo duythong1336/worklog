@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics, filters
 from .models import Employee
-from .serializers import EmployeeSerializer, EmployeeUpdateSerializer
+from .serializers import EmployeeSerializer, EmployeeUpdateSerializer, ChangePasswordRequestSerializer, NewPasswordSerializer, EmployeeUpdateAdminSerializer
 from share.utils import format_respone
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
@@ -10,6 +10,8 @@ from .permissions import IsAdminOrStaff
 from share.utils import format_respone, LargeResultsSetPagination, get_paginated_response, create_paginated_response, format_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import ListAPIView
+from OTP.models import OTP
+from django.utils import timezone
 
 class EmployeeListView(ListAPIView):
     
@@ -68,8 +70,9 @@ class EmployeeCreateView(generics.CreateAPIView):
         
 class EmployeeUpdateView(generics.RetrieveUpdateAPIView):
     def put(self, request, *args, **kwargs):
-        employee_id = kwargs.get('pk')
-        employee = get_object_or_404(Employee, pk=employee_id)
+        user = request.user
+
+        employee = Employee.objects.get(id=user.id)
         serializer = EmployeeUpdateSerializer(employee, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -84,7 +87,7 @@ class EmployeeUpdateAdminView(generics.RetrieveUpdateAPIView):
     def put(self, request, *args, **kwargs):
         employee_id = kwargs.get('pk')
         employee = get_object_or_404(Employee, pk=employee_id)
-        serializer = EmployeeSerializer(employee, data=request.data)
+        serializer = EmployeeUpdateAdminSerializer(employee, data=request.data)
         if serializer.is_valid():
             serializer.save()
             response_data = format_respone(success=True, status=status.HTTP_200_OK, message="Employee updated successfully", data=serializer.data)
@@ -120,5 +123,58 @@ class EmployeeProfileView(APIView):
             response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
             return Response(response, status=response.get('status'))
         
-        
-    
+class ChangePasswordRequestAPIView(APIView):
+    def post(self, request):    
+        user = request.user
+        if user.is_authenticated:
+            serializer = ChangePasswordRequestSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                current_password = serializer.validated_data.get('current_password') 
+                if not user.check_password(current_password):
+                    response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message="Mật khẩu hiện tại không đúng.", data=[])
+                    return Response(response, status=response.get('status'))
+                serializer.save()
+                response = format_respone(success=True, status=status.HTTP_200_OK, message="OTP Send to mail successfully", data=[])
+                return Response(response, status=response.get('status'))
+            else:
+                response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message=serializer.errors, data=[])
+                return Response(response, status=response.get('status'))
+        else:
+            response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+            return Response(response, status=response.get('status'))
+
+class NewPasswordAPIView(APIView):
+    def put(self, request):
+        user = request.user
+        if user.is_authenticated:
+            serializer = NewPasswordSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+
+                new_password = serializer.validated_data.get('new_password')
+                confirm_new_password = serializer.validated_data.get('confirm_new_password')
+                otp_code = serializer.validated_data.get('otp')
+
+                otp_record = OTP.objects.filter(employee=user, otp_code=otp_code).first()
+                if not otp_record:
+                    response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message="Mã OTP không hợp lệ.", data=[])
+                    return Response(response, status=response.get('status'))
+
+                if otp_record.created_at + timezone.timedelta(minutes=1) < timezone.now():
+                    response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message="Mã OTP đã hết hạn.", data=[])
+                    return Response(response, status=response.get('status'))
+            
+                if new_password != confirm_new_password:
+                    response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message="Mật khẩu mới và mật khẩu xác nhận không khớp.", data=[])
+                    return Response(response, status=response.get('status'))
+
+                serializer.save()
+                OTP.objects.filter(employee=user).delete()
+            
+                response = format_respone(success=True, status=status.HTTP_200_OK, message="Thay đổi mật khẩu thành công.", data=[])
+                return Response(response, status=response.get('status'))
+            else:
+                response = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message=serializer.errors, data=[])
+                return Response(response, status=response.get('status'))
+        else:
+            response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+            return Response(response, status=response.get('status'))

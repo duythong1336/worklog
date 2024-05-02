@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +28,16 @@ SECRET_KEY = 'django-insecure-=v^613qf3uegl4+*+qol&f$s6uj&h6jkbt5lqvdqdsdnw0cl9y
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
+
+CELERY_BEAT_SCHEDULE = {
+    'create-previous-month-salaries': {
+        'task': 'Salary.tasks.create_previous_month_salaries',
+        'schedule': crontab(day_of_month='1', hour='0', minute='0'),  # Chạy vào ngày 1 và giờ 0:00
+        # 'schedule': crontab(hour=18, minute=5),
+    },
+}
 
 
 # Application definition
@@ -46,6 +57,8 @@ INSTALLED_APPS = [
     'LeaveRequest',
     'django_filters',
     'Timekeeping',
+    'OTP',
+    'Salary',
 ]
 
 MIDDLEWARE = [
@@ -161,6 +174,7 @@ LANGUAGE_CODE = 'en-us'
 
 # TIME_ZONE = 'UTC'
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
+
 
 USE_I18N = True
 

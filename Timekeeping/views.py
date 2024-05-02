@@ -79,15 +79,22 @@ class TimeKeepingDeleteView(generics.DestroyAPIView):
         response_data = format_respone(success=True, status=status.HTTP_200_OK, message="Timekeeping deleted successfully", data=[])
         return Response(response_data, status=response_data.get('status'))
     
-class TimekeepingsOneUserView(APIView):
+class TimekeepingProfileView(ListAPIView):
+    filter_backends = [DjangoFilterBackend]
+    pagination_class = LargeResultsSetPagination
+    filterset_fields = ['check_type','date']
     def get(self, request, *args, **kwargs):
         user = request.user
-        
         if user.is_authenticated:
             time_keeping = Timekeeping.objects.filter(employee = user)
             if time_keeping:
-                serializer = TimekeepingSerializer(time_keeping, many=True)
-                response = format_respone(success=True, status=status.HTTP_200_OK, message="Get Timekeeping User Successfully", data=serializer.data)
+                queryset = self.filter_queryset(time_keeping)
+        
+                paginator = self.pagination_class()
+                page = paginator.paginate_queryset(queryset, request)
+                serializer = TimekeepingSerializer(page, many=True)
+                response = create_paginated_response(serializer, time_keeping, paginator)
+                # response = format_respone(success=True, status=status.HTTP_200_OK, message="Get Timekeeping User Successfully", data=serializer.data)
                 return Response(response, status=response.get('status'))    
             else:
                 response = format_respone(success=False, status=status.HTTP_404_NOT_FOUND, message="Timekeeping Employee not found in database", data=[])

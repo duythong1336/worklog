@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Employee, GenderChoices
+from OTP.models import OTP
 from Department.models import Department
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
@@ -10,14 +11,9 @@ from jwt import encode as jwt_encode
 from JWTToken.models import JWTToken
 from datetime import datetime, timedelta
 from WorkLog.settings import SECRET_KEY
+from random import randint
+from django.utils import timezone
 
-# Lấy tất cả các người dùng admin
-admin_users = Employee.objects.filter(is_admin=True)
-
-# Lặp qua từng người dùng admin và gán cho họ các quyền của admin
-for admin_user in admin_users:
-    admin_permissions = admin_user.user_permissions.all()
-    admin_user.user_permissions.set(admin_permissions)
 
 class EmployeeSerializer(serializers.Serializer):
     
@@ -31,6 +27,7 @@ class EmployeeSerializer(serializers.Serializer):
     phone_number = serializers.IntegerField()   
     address = serializers.CharField(max_length = 255)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all())
+    salary = serializers.DecimalField(max_digits=11, decimal_places=2)
     
     
     def get_is_admin(self, obj):
@@ -50,7 +47,8 @@ class EmployeeSerializer(serializers.Serializer):
             gender=validated_data.get('gender'),
             phone_number=validated_data.get('phone_number'),
             address=validated_data.get('address'),
-            department=validated_data.get('department')
+            department=validated_data.get('department'),
+            salary=validated_data.get('salary'),
         )
         
         employee.save()
@@ -79,6 +77,7 @@ class EmployeeSerializer(serializers.Serializer):
         instance.phone_number = validated_data.get('phone_number', instance.phone_number)
         instance.address = validated_data.get('address', instance.address)
         instance.department = validated_data.get('department', instance.department)
+        instance.salary = validated_data.get('salary', instance.salary)
         
         instance.save()
         return instance
@@ -99,7 +98,8 @@ class EmployeeSerializer(serializers.Serializer):
             'gender': instance.gender,
             'phone_number': instance.phone_number,
             'address': instance.address,
-            'department': instance.department.name
+            'department': instance.department.name,
+            'salary': instance.salary,
         }
         return representation
     
@@ -133,32 +133,136 @@ class EmployeeUpdateSerializer(serializers.Serializer):
             'gender': instance.gender,
             'phone_number': instance.phone_number,
             'address': instance.address,
-            'department': instance.department.name
+            'department': instance.department.name,
+            'salary': instance.salary,
         }
         return representation
+
+class EmployeeUpdateAdminSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length = 10)
+    last_name = serializers.CharField(max_length = 10)
+    gender = serializers.ChoiceField(choices=GenderChoices, default=GenderChoices.MALE)
+    phone_number = serializers.IntegerField()
+    address = serializers.CharField(max_length = 255)
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all())
+    salary = serializers.DecimalField(max_digits=11, decimal_places=2)
     
-# class LoginSerializer(serializers.Serializer):
-#     username = serializers.CharField()
-#     password = serializers.CharField()
-
-#     def validate(self, attrs):
-#         username = attrs.get("username")
-#         password = attrs.get("password")
-
-#         employee = Employee.objects.filter(username=username).first()
-
-#         if employee is None or not employee.check_password(password):
-#             raise serializers.ValidationError("Invalid username or password")
-
-#         refresh = RefreshToken.for_user(employee)
+    def update(self, instance, validated_data):
         
-#         return {
-#             'username': employee.username,
-#             'email': employee.email,
-#             'token': {
-#                 'refresh': str(refresh),
-#                 'access': str(refresh.access_token),
-#             }
-#         }
+        # instance.username = validated_data.get('username', instance.username)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        # instance.email = validated_data.get('email', instance.email)
+        instance.gender = validated_data.get('gender', instance.gender)
+        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
+        instance.address = validated_data.get('address', instance.address)
+        instance.department = validated_data.get('department', instance.department)
+        instance.salary = validated_data.get('salary', instance.salary)
+        
+        instance.save()
+        return instance
     
+
+    
+    def to_representation(self, instance):
         
+        representation = {
+            'id': instance.id,
+            'username': instance.username,
+            # 'password': instance.password,
+            'first_name': instance.first_name,
+            'last_name': instance.last_name,
+            'email': instance.email,
+            'is_admin': instance.is_admin,
+            'gender': instance.gender,
+            'phone_number': instance.phone_number,
+            'address': instance.address,
+            'department': instance.department.name,
+            'salary': instance.salary,
+        }
+        return representation
+        
+class ChangePasswordRequestSerializer(serializers.Serializer):
+    current_password = serializers.CharField(max_length=30)
+
+    def save(self, **kwargs):
+        # Kiểm tra mật khẩu hiện tại của người dùng
+        user = self.context['request'].user
+
+
+        # Tạo và lưu mã OTP vào cơ sở dữ liệu
+        otp = ''.join([str(randint(0, 9)) for _ in range(6)])
+        OTP.objects.create(employee=user, otp_code=otp)
+
+        # Gửi mã OTP qua email
+        send_mail(
+            "[Exnodes] Mã OTP để xác nhận đổi mật khẩu",
+            f"Mã OTP của bạn là: {otp}",
+            "",
+            [user.email],
+            fail_silently=False,
+        )
+
+        return {"message": "Mã OTP đã được gửi qua email của bạn."}
+    
+# class VerifyOTPSerializer(serializers.Serializer):
+#     otp = serializers.CharField(max_length=6)
+
+#     def validate(self, data):
+#         otp_entered = data.get('otp')
+#         user = self.context['user']
+
+#         # Kiểm tra mã OTP trong cơ sở dữ liệu
+#         otp_record = OTP.objects.filter(employee=user, otp_code=otp_entered, is_used=False).first()
+
+#         if not otp_record:
+#             raise serializers.ValidationError("Mã OTP không hợp lệ")
+        
+#         current_time_naive = timezone.localtime(timezone.now())
+
+#         # Kiểm tra thời gian hiện tại so với thời gian tạo OTP
+#         if otp_record.created_at + timedelta(minutes=1) < current_time_naive:
+#             raise serializers.ValidationError("Mã OTP đã hết hạn.")
+
+#         data['otp'] = otp_record  # Lưu đối tượng OTP vào validated data
+#         return data
+    
+# class NewPasswordSerializer(serializers.Serializer):
+#     new_password = serializers.CharField(max_length=30)
+#     confirm_new_password = serializers.CharField(max_length=30)
+    
+
+#     def validate(self, data):
+#         new_password = data.get('new_password')
+#         confirm_new_password = data.get('confirm_new_password')
+#         # user = self.context['user']
+
+#         # Kiểm tra xem mật khẩu mới và mật khẩu xác nhận có khớp nhau không
+#         if new_password != confirm_new_password:
+#             raise serializers.ValidationError("Mật khẩu mới và mật khẩu xác nhận không khớp.")
+
+#         return data
+
+class NewPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(max_length=30)
+    confirm_new_password = serializers.CharField(max_length=30)
+    otp = serializers.CharField(max_length=6)
+    
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        new_password = self.validated_data['new_password']
+
+        # Cập nhật mật khẩu mới cho người dùng
+        user.set_password(new_password)
+        user.save()
+
+    # def validate(self, data):
+    #     new_password = data.get('new_password')
+    #     confirm_new_password = data.get('confirm_new_password')
+
+    #     # Kiểm tra xem mật khẩu mới và mật khẩu xác nhận có khớp nhau không
+    #     if new_password != confirm_new_password:
+    #         raise serializers.ValidationError("Mật khẩu mới và mật khẩu xác nhận không khớp.")
+
+        
+    #     return data

@@ -14,6 +14,7 @@ class Employee(AbstractUser):
     phone_number = models.IntegerField()
     address = models.CharField(max_length=255)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='employees')
+    salary = models.DecimalField(max_digits=11, decimal_places=2, default = 0.0)
     
 
     def __str__(self):

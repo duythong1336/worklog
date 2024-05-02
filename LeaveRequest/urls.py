@@ -8,4 +8,5 @@ urlpatterns = [
     path('LeaveRequest/rejected/<int:pk>/', RejectedStatusView.as_view(), name='LeaveRequest-rejected'),
     path('LeaveRequest/search/', LeaveRequestSearchView.as_view(), name='LeaveRequest-search'),
     path('LeaveRequest/delete/<int:pk>/', LeaveRequestDeleteView.as_view(), name='LeaveRequest-delete'),
+    path('profile/LeaveRequest/', LeaveRequestProfileView.as_view(), name='LeaveRequest-profile'),
 ]

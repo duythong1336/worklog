@@ -14,6 +14,7 @@ services:
       - '3307:3306'
     networks:
       - my_network
+    command: --bind-address=0.0.0.0
 
 
   web:

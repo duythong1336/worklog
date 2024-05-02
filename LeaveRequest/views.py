@@ -156,3 +156,27 @@ class LeaveRequestDeleteView(generics.DestroyAPIView):
         response_data = format_respone(success=True, status=status.HTTP_200_OK, message="LeaveRequest deleted successfully", data=[])
         return Response(response_data, status=response_data.get('status'))
             
+class LeaveRequestProfileView(ListAPIView):
+    filter_backends = [DjangoFilterBackend]
+    pagination_class = LargeResultsSetPagination
+    filterset_fields = ['status','start_date','end_date']
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_authenticated:
+            leave_request = LeaveRequest.objects.filter(employee = user)
+            if leave_request:
+                queryset = self.filter_queryset(leave_request)
+        
+                paginator = self.pagination_class()
+                page = paginator.paginate_queryset(queryset, request)
+                serializer = LeaveRequestSerializer(page, many=True)
+                response = create_paginated_response(serializer, leave_request, paginator)
+                # response = format_respone(success=True, status=status.HTTP_200_OK, message="Get Timekeeping User Successfully", data=serializer.data)
+                return Response(response, status=response.get('status'))    
+            else:
+                response = format_respone(success=False, status=status.HTTP_404_NOT_FOUND, message="LeaveRequest not found in database", data=[])
+                return Response(response, status=response.get('status'))
+                
+        else:
+            response = format_respone(success=False, status=status.HTTP_401_UNAUTHORIZED, message="User is not authenticated", data=[])
+            return Response(response, status=response.get('status'))
