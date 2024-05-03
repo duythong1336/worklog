@@ -34,8 +34,8 @@ CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 CELERY_BEAT_SCHEDULE = {
     'create-previous-month-salaries': {
         'task': 'Salary.tasks.create_previous_month_salaries',
-        # 'schedule': crontab(day_of_month='1', hour='0', minute='0'),  # Chạy vào ngày 1 và giờ 0:00
-        'schedule': crontab(hour=9, minute=49),
+        'schedule': crontab(day_of_month='1', hour='0', minute='0'),  # Chạy vào ngày 1 và giờ 0:00
+        # 'schedule': crontab(hour=9, minute=49),
     },
 }
 
