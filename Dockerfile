@@ -45,6 +45,10 @@ ENV PYTHONUNBUFFERED 1
 RUN pip install --upgrade pip
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
+# RUN pip install celery
+# RUN pip install openpyxl
+
+
 
 # copy entrypoint.sh
 COPY entrypoint.sh ./
@@ -53,6 +57,9 @@ RUN chmod +x entrypoint.sh
 
 # copy project
 COPY . .
+
+CMD celery -A WorkLog worker --loglevel=info
+
 
 EXPOSE 80
 

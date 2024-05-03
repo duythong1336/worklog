@@ -16,7 +16,6 @@ services:
       - my_network
     command: --bind-address=0.0.0.0
 
-
   web:
     build: .
     volumes:
@@ -30,12 +29,35 @@ services:
       - ./.env.dev
     networks:
       - my_network
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+
+  celery_worker:
+    build: .
+    volumes:
+      - ./:/usr/src/app/
+    image: work_log.cms:latest
+    container_name: celery_worker
+    env_file:
+      - ./.env.dev
+    command: celery -A WorkLog worker --loglevel=info
+    networks:
+      - my_network
+
+  celery_beat:
+    build: .
+    volumes:
+      - ./:/usr/src/app/
+    image: work_log.cms:latest
+    container_name: celery_beat
+    env_file:
+      - ./.env.dev
+    command: celery -A WorkLog beat --loglevel=info
+    networks:
+      - my_network
     
 networks:
   my_network:
     driver: bridge
+
     
     
 
