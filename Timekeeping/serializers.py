@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from datetime import date
 
 
-
 class TimekeepingSerializer(serializers.Serializer):
      
     
@@ -46,6 +45,7 @@ class TimekeepingSerializer(serializers.Serializer):
             for record in middle_records:
                 record.check_type = TypeCheckChoicesEnum.RAVAO
                 record.save()
+                # update_excel_file(user, TypeCheckChoicesEnum.RAVAO)
         
         # Lấy bản ghi cuối cùng
         
@@ -58,13 +58,14 @@ class TimekeepingSerializer(serializers.Serializer):
             if last_record:
                 last_record.check_type = TypeCheckChoicesEnum.CHECKOUT
                 last_record.save()
+                # update_excel_file(user, TypeCheckChoicesEnum.CHECKOUT)
 
         return time_keeping
     
     def to_representation(self, instance):
         
         representation = {
-            'time_keeping_id': instance.id,
+            'employee_id': instance.employee.id,
             'employee': instance.employee.first_name + " " + instance.employee.last_name,
             'department': instance.employee.department.name,
             'type_check': instance.check_type,

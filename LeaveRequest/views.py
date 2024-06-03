@@ -10,6 +10,9 @@ from rest_framework.permissions import AllowAny
 from Employee.permissions import IsAdminOrStaff
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.mail import send_mail
+from fcm_django.models import FCMDevice
+# from Notification.models import create_notification, send_notification, DeviceToken
+
 
 
 class LeaveRequestCreateView(generics.CreateAPIView):
@@ -20,6 +23,33 @@ class LeaveRequestCreateView(generics.CreateAPIView):
     
             serializer = LeaveRequestSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
+                
+                # Lấy danh sách các admin
+                # admin_users = Employee.objects.filter(is_admin=True)
+                # print("admin_users")
+                # print(admin_users)
+                
+                # title = "New Leave Request"
+                # message = "A new leave request has been created."
+
+                # # Lặp qua từng admin để lấy các thiết bị của họ và gửi thông báo
+                # for admin in admin_users:
+                #     # Lấy tất cả các DeviceToken của admin hiện tại
+                #     admin_devices = DeviceToken.objects.filter(user=admin)
+    
+                #     # Lấy các token từ các thiết bị của admin và tạo danh sách token
+                #     device_tokens = [device.token for device in admin_devices if device.token]
+                    
+                #     print("admin_devices: ")
+                #     print(admin_devices)
+                #     print("device_tokens: ")
+                #     print(device_tokens)
+
+                #     # Gửi thông báo đến tất cả các admin
+                #     send_notification(device_tokens=device_tokens, title=title, message=message)
+
+                #     create_notification(user=user, title=title, message=message)
+
                 serializer.save()
                 response = format_respone(success=True, status=status.HTTP_201_CREATED, message="LeaveRequest created successfully", data=serializer.data)
                 return Response(response, status=response.get('status'))
@@ -34,27 +64,8 @@ class LeaveRequestListView(ListAPIView):
     
     permission_classes = [IsAdminOrStaff]
     pagination_class = LargeResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['status']
-    
-    def get(self, request, *args, **kwargs):
-        leave_requests = LeaveRequest.objects.all()
-
-        queryset = self.filter_queryset(leave_requests)
-        
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(queryset, request)
-        
-        serializer = LeaveRequestSerializer(page, many=True)
-        
-        response = create_paginated_response(serializer, leave_requests, paginator)
-        return Response(response, status=response.get('statusCode'))
-    
-class LeaveRequestSearchView(ListAPIView):
-    
-    permission_classes = [IsAdminOrStaff]
-    pagination_class = LargeResultsSetPagination
-    filter_backends = [filters.SearchFilter]
     search_fields = ['employee__username', 'employee__last_name','employee__first_name']
     
     def get(self, request, *args, **kwargs):
@@ -69,6 +80,26 @@ class LeaveRequestSearchView(ListAPIView):
         
         response = create_paginated_response(serializer, leave_requests, paginator)
         return Response(response, status=response.get('statusCode'))
+    
+# class LeaveRequestSearchView(ListAPIView):
+    
+#     permission_classes = [IsAdminOrStaff]
+#     pagination_class = LargeResultsSetPagination
+#     filter_backends = [filters.SearchFilter]
+#     search_fields = ['employee__username', 'employee__last_name','employee__first_name']
+    
+#     def get(self, request, *args, **kwargs):
+#         leave_requests = LeaveRequest.objects.all()
+
+#         queryset = self.filter_queryset(leave_requests)
+        
+#         paginator = self.pagination_class()
+#         page = paginator.paginate_queryset(queryset, request)
+        
+#         serializer = LeaveRequestSerializer(page, many=True)
+        
+#         response = create_paginated_response(serializer, leave_requests, paginator)
+#         return Response(response, status=response.get('statusCode'))
     
 class ApprovedStatusView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminOrStaff]

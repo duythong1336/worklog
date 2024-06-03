@@ -8,13 +8,14 @@ from datetime import datetime, timedelta
 import calendar
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
+from share.utils import update_google_sheet_salary
 
 class SalarySerializer(serializers.Serializer):
     
     def create(self, validated_data):
         self.create_previous_month_salaries()
         return Employee.objects.all()
-    
+
     def create_previous_month_salaries(self):
         # Lấy tháng và năm hiện tại
         current_month = datetime.now().month
@@ -24,9 +25,12 @@ class SalarySerializer(serializers.Serializer):
         previous_month = current_month - 1 if current_month != 1 else 12
         previous_year = current_year if current_month != 1 else current_year - 1
         
-        # Lấy ngày đầu tiên và ngày cuối cùng của tháng trước
-        start_date = datetime(previous_year, previous_month, 1)
-        end_date = start_date.replace(month=previous_month % 12 + 1, day=1) - timedelta(days=1)
+        num_days_in_previous_month = calendar.monthrange(previous_year, previous_month)[1]
+
+        # Đếm số ngày là thứ 7 và Chủ nhật
+        count_weekend_days = sum(1 for day in range(1, num_days_in_previous_month + 1) if calendar.weekday(previous_year, previous_month, day) in [calendar.SATURDAY, calendar.SUNDAY])
+        
+        
         
         # Lấy danh sách tất cả các nhân viên
         employees = Employee.objects.all()
@@ -34,14 +38,24 @@ class SalarySerializer(serializers.Serializer):
         # Duyệt qua từng nhân viên và kiểm tra xem họ đã có bản ghi lương cho tháng trước chưa
         for employee in employees:
             # Kiểm tra xem nhân viên đã có bản ghi lương cho tháng trước chưa
-            if not Salary.objects.filter(employee=employee, created_at__year=previous_year, created_at__month=previous_month).exists():
+            if not Salary.objects.filter(employee=employee, year=previous_year, month=previous_month).exists():
                 # Nếu chưa có, tạo một bản ghi lương mới cho nhân viên đó
+                total_workdays = self.calculate_total_workdays(employee, previous_month, previous_year)
+                total_leave_days = self.calculate_total_leave_days(employee, previous_month, previous_year)
+                num_days_without_weekend = num_days_in_previous_month - count_weekend_days
+                total_salary = self.calculate_total_salary(employee, total_workdays, previous_month, previous_year, num_days_without_weekend, total_leave_days)
+                
                 salary = Salary(
                     employee=employee,
                     month=previous_month,
-                    year=previous_year
+                    year=previous_year,
+                    total_salary = total_salary,
+                    created_at = datetime.now()
+                    
                 )
                 salary.save()
+                # update_google_sheet_salary()
+                # update_google_sheet_salary(employee, total_workdays, total_leave_days, total_salary, previous_month, previous_year)
                 
     def calculate_total_workdays(self, employee, previous_month, previous_year):
 
@@ -71,20 +85,20 @@ class SalarySerializer(serializers.Serializer):
         
         return total_workdays
     
-    def calculate_total_salary(self, employee, total_workdays, previous_month, previous_year, num_days_in_previous_month, total_leave_days):
+    def calculate_total_salary(self, employee, total_workdays, previous_month, previous_year, num_days_without_weekend, total_leave_days):
         # Lấy lương của nhân viên
         salary_per_month = employee.salary
 
         # Chuyển đổi total_workdays thành decimal.Decimal
         total_workdays_decimal = Decimal(total_workdays)
         
-        salary_one_day = salary_per_month * Decimal(1 / num_days_in_previous_month)
+        salary_one_day = salary_per_month * Decimal(1 / num_days_without_weekend)
         
         # Tính tổng lương
         if total_leave_days >= 2 and total_workdays >= 1:
-            total_salary = salary_per_month * (total_workdays_decimal / num_days_in_previous_month) + salary_one_day
+            total_salary = salary_per_month * (total_workdays_decimal / num_days_without_weekend) + salary_one_day
         else:
-            total_salary = salary_per_month * (total_workdays_decimal / num_days_in_previous_month)
+            total_salary = salary_per_month * (total_workdays_decimal / num_days_without_weekend)
         
         return total_salary
     
@@ -127,10 +141,18 @@ class SalarySerializer(serializers.Serializer):
         
         # Lấy số ngày trong tháng trước
         num_days_in_previous_month = calendar.monthrange(previous_year, previous_month)[1]
-        
+
+        # Đếm số ngày là thứ 7 và Chủ nhật
+        count_weekend_days = sum(1 for day in range(1, num_days_in_previous_month + 1) if calendar.weekday(previous_year, previous_month, day) in [calendar.SATURDAY, calendar.SUNDAY])
+
+        # Tổng số ngày trong tháng trước loại bỏ các ngày là thứ 7 và Chủ nhật
+        num_days_without_weekend = num_days_in_previous_month - count_weekend_days
+        # print(num_days_in_previous_month)
+        # print(count_weekend_days)
+        # print(num_days_without_weekend)
         total_workdays = self.calculate_total_workdays(instance.employee, previous_month, previous_year)
         total_leave_days = self.calculate_total_leave_days(instance.employee, previous_month, previous_year)
-        total_salary = self.calculate_total_salary(instance.employee, total_workdays, previous_month, previous_year, num_days_in_previous_month, total_leave_days)
+        # total_salary = self.calculate_total_salary(instance.employee, total_workdays, previous_month, previous_year, num_days_without_weekend, total_leave_days)
         
         representation = {
             'id': instance.id,
@@ -139,7 +161,7 @@ class SalarySerializer(serializers.Serializer):
             'salary_year': instance.year,
             'total_workdays': total_workdays,
             'total_leave_days': total_leave_days,
-            'total_salary': int(total_salary),
+            'total_salary': int(instance.total_salary),
             
         }
         return representation

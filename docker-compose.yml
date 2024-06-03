@@ -2,6 +2,14 @@ version: '3'
 
 services:
 
+
+  # redis:
+  #   image: redis
+  #   ports:
+  #     - '6379:6379'
+  #   networks:
+  #     - my_network
+
   db:
     image: mysql:latest
     restart: always
@@ -29,34 +37,52 @@ services:
       - ./.env.dev
     networks:
       - my_network
+    # command: >
+    #   bash -c "python manage.py migrate &&
+    #   python manage.py rqworker &
+    #   python manage.py rqscheduler &
+    #   python manage.py runserver 0.0.0.0:8000"
 
-  celery_worker:
-    build: .
-    volumes:
-      - ./:/usr/src/app/
-    image: work_log.cms:latest
-    container_name: celery_worker
-    env_file:
-      - ./.env.dev
-    command: celery -A WorkLog worker --loglevel=info
-    networks:
-      - my_network
-
-  celery_beat:
-    build: .
-    volumes:
-      - ./:/usr/src/app/
-    image: work_log.cms:latest
-    container_name: celery_beat
-    env_file:
-      - ./.env.dev
-    command: celery -A WorkLog beat --loglevel=info
-    networks:
-      - my_network
-    
 networks:
   my_network:
     driver: bridge
+
+
+  
+  # celery_worker:
+  #   build: .
+  #   command: celery -A WorkLog worker --loglevel=info
+  #   volumes:
+  #     - ./:/usr/src/app/
+  #   env_file:
+  #     - ./.env.dev
+  #   depends_on:
+  #     - redis
+  #     - web
+  #     - redis
+  #   environment:
+  #     - TZ=Asia/Ho_Chi_Minh
+  #   networks:
+  #     - my_network
+
+  # celery_beat:
+  #   build: .
+  #   command: celery -A WorkLog beat --loglevel=info
+  #   volumes:
+  #     - ./:/usr/src/app/
+  #   env_file:
+  #     - ./.env.dev
+  #   depends_on:
+  #     - redis
+  #     - web
+  #     - redis
+  #   environment:
+  #     - TZ=Asia/Ho_Chi_Minh
+  #   networks:
+  #     - my_network
+
+  
+    
 
     
     

@@ -13,7 +13,14 @@ from datetime import datetime, timedelta
 from WorkLog.settings import SECRET_KEY
 from random import randint
 from django.utils import timezone
-
+import os
+from django.core.files.storage import FileSystemStorage
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.conf import settings
+import threading
+import random
+import string
+import time
 
 class EmployeeSerializer(serializers.Serializer):
     
@@ -21,11 +28,11 @@ class EmployeeSerializer(serializers.Serializer):
     password = serializers.CharField(max_length = 30, write_only=True, validators=[validate_password])
     first_name = serializers.CharField(max_length = 10)
     last_name = serializers.CharField(max_length = 10)
-    email = serializers.CharField(max_length = 50, validators=[UniqueValidator(queryset=Employee.objects.all())])
+    email = serializers.EmailField(max_length = 50, validators=[UniqueValidator(queryset=Employee.objects.all())])
     is_admin = serializers.SerializerMethodField()
     gender = serializers.ChoiceField(choices=GenderChoices, default=GenderChoices.MALE)
-    phone_number = serializers.IntegerField()   
-    address = serializers.CharField(max_length = 255)
+    # phone_number = serializers.IntegerField()   
+    # address = serializers.CharField(max_length = 255)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all())
     salary = serializers.DecimalField(max_digits=11, decimal_places=2)
     
@@ -45,8 +52,8 @@ class EmployeeSerializer(serializers.Serializer):
             email=validated_data.get('email'),
             is_admin=False,  
             gender=validated_data.get('gender'),
-            phone_number=validated_data.get('phone_number'),
-            address=validated_data.get('address'),
+            # phone_number=validated_data.get('phone_number'),
+            # address=validated_data.get('address'),
             department=validated_data.get('department'),
             salary=validated_data.get('salary'),
         )
@@ -54,18 +61,24 @@ class EmployeeSerializer(serializers.Serializer):
         employee.save()
         
         email_content = f"Username: {validated_data['username']}\nPassword: {validated_data['password']}"
-        
-        send_mail(
+    
+        # Bắt đầu một luồng mới để gửi email
+        email_thread = threading.Thread(
+        target=send_email_async,
+        args=(
             "[Exnodes] Username and password new Employee",
             email_content,
-            "",
-            [validated_data.get('email')],
-            fail_silently=False,
+            validated_data.get('email')
         )
+        )
+        email_thread.start()
+        # email_thread.join()
         
         
         
         return employee
+    
+
     
     def update(self, instance, validated_data):
         
@@ -100,20 +113,51 @@ class EmployeeSerializer(serializers.Serializer):
             'address': instance.address,
             'department': instance.department.name,
             'salary': instance.salary,
+            'image': instance.image.name if instance.image else None  # Kiểm tra nếu có hình ảnh trước khi truy cập
         }
         return representation
+def send_email_async(email_subject, email_content, recipient_email):
+    send_mail(
+        email_subject,
+        email_content,
+        "",
+        [recipient_email],
+        fail_silently=False,
+    )
     
 class EmployeeUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length = 10)
     last_name = serializers.CharField(max_length = 10)
+    email = serializers.EmailField(max_length = 50, validators=[UniqueValidator(queryset=Employee.objects.all())])
     gender = serializers.ChoiceField(choices=GenderChoices, default=GenderChoices.MALE)
     phone_number = serializers.IntegerField()
     address = serializers.CharField(max_length = 255)
+    image = serializers.ImageField()
+    
+    # def validate_email(self, value):
+    #     # Kiểm tra xem địa chỉ email đã tồn tại trong hệ thống chưa
+    #     if Employee.objects.filter(email=value).exists():
+    #         raise serializers.ValidationError("This email address is already in use.")
+    #     return value
+
+    # def validate_gender(self, value):
+    #     # Kiểm tra xem giá trị của gender có nằm trong danh sách các lựa chọn không
+    #     if value not in dict(GenderChoices).keys():
+    #         raise serializers.ValidationError("Invalid gender.")
+    #     return value
+
     
     def update(self, instance, validated_data):
+        
+        # Xác minh và xử lý hình ảnh mới nếu có
+        image = validated_data.pop('image', None)
+        if image:
+            instance.image = image.name
+        
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.gender = validated_data.get('gender', instance.gender)
+        instance.email = validated_data.get('email', instance.email)
         instance.phone_number = validated_data.get('phone_number', instance.phone_number)
         instance.address = validated_data.get('address', instance.address)
         
@@ -135,6 +179,7 @@ class EmployeeUpdateSerializer(serializers.Serializer):
             'address': instance.address,
             'department': instance.department.name,
             'salary': instance.salary,
+            'image': instance.image.name if instance.image else None  # Kiểm tra nếu có hình ảnh trước khi truy cập
         }
         return representation
 
@@ -146,13 +191,14 @@ class EmployeeUpdateAdminSerializer(serializers.Serializer):
     address = serializers.CharField(max_length = 255)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all())
     salary = serializers.DecimalField(max_digits=11, decimal_places=2)
+    email = serializers.EmailField(max_length = 50, validators=[UniqueValidator(queryset=Employee.objects.all())])
     
     def update(self, instance, validated_data):
         
         # instance.username = validated_data.get('username', instance.username)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
-        # instance.email = validated_data.get('email', instance.email)
+        instance.email = validated_data.get('email', instance.email)
         instance.gender = validated_data.get('gender', instance.gender)
         instance.phone_number = validated_data.get('phone_number', instance.phone_number)
         instance.address = validated_data.get('address', instance.address)
@@ -179,6 +225,7 @@ class EmployeeUpdateAdminSerializer(serializers.Serializer):
             'address': instance.address,
             'department': instance.department.name,
             'salary': instance.salary,
+            'image': instance.image.name if instance.image else None  # Kiểm tra nếu có hình ảnh trước khi truy cập
         }
         return representation
         
@@ -191,7 +238,7 @@ class ChangePasswordRequestSerializer(serializers.Serializer):
 
 
         # Tạo và lưu mã OTP vào cơ sở dữ liệu
-        otp = ''.join([str(randint(0, 9)) for _ in range(6)])
+        otp = generate_unique_otp()
         OTP.objects.create(employee=user, otp_code=otp)
 
         # Gửi mã OTP qua email
@@ -205,43 +252,7 @@ class ChangePasswordRequestSerializer(serializers.Serializer):
 
         return {"message": "Mã OTP đã được gửi qua email của bạn."}
     
-# class VerifyOTPSerializer(serializers.Serializer):
-#     otp = serializers.CharField(max_length=6)
-
-#     def validate(self, data):
-#         otp_entered = data.get('otp')
-#         user = self.context['user']
-
-#         # Kiểm tra mã OTP trong cơ sở dữ liệu
-#         otp_record = OTP.objects.filter(employee=user, otp_code=otp_entered, is_used=False).first()
-
-#         if not otp_record:
-#             raise serializers.ValidationError("Mã OTP không hợp lệ")
-        
-#         current_time_naive = timezone.localtime(timezone.now())
-
-#         # Kiểm tra thời gian hiện tại so với thời gian tạo OTP
-#         if otp_record.created_at + timedelta(minutes=1) < current_time_naive:
-#             raise serializers.ValidationError("Mã OTP đã hết hạn.")
-
-#         data['otp'] = otp_record  # Lưu đối tượng OTP vào validated data
-#         return data
     
-# class NewPasswordSerializer(serializers.Serializer):
-#     new_password = serializers.CharField(max_length=30)
-#     confirm_new_password = serializers.CharField(max_length=30)
-    
-
-#     def validate(self, data):
-#         new_password = data.get('new_password')
-#         confirm_new_password = data.get('confirm_new_password')
-#         # user = self.context['user']
-
-#         # Kiểm tra xem mật khẩu mới và mật khẩu xác nhận có khớp nhau không
-#         if new_password != confirm_new_password:
-#             raise serializers.ValidationError("Mật khẩu mới và mật khẩu xác nhận không khớp.")
-
-#         return data
 
 class NewPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(max_length=30)
@@ -266,3 +277,83 @@ class NewPasswordSerializer(serializers.Serializer):
 
         
     #     return data
+    
+generated_otps = set()
+
+def generate_unique_otp():
+    while True:
+        # Tạo một chuỗi ngẫu nhiên gồm 6 chữ số
+        otp = ''.join(random.choices(string.digits, k=6))
+
+        # Kiểm tra xem mã OTP đã tồn tại trong danh sách chưa
+        if otp not in generated_otps:
+            # Nếu không trùng lặp, thêm mã OTP vào danh sách và trả về
+            generated_otps.add(otp)
+            return otp
+
+    
+class ForgotPassSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=30, required=False)
+    email = serializers.EmailField(required=False)
+    
+    def save(self, **kwargs):
+        # Kiểm tra mật khẩu hiện tại của người dùng
+        user = None
+        if 'username' in self.validated_data:
+            username = self.validated_data.get('username')
+            user = Employee.objects.filter(username=username).first()
+        elif 'email' in self.validated_data:
+            email = self.validated_data.get('email')
+            user = Employee.objects.filter(email=email).first()
+        
+        if user:
+            # Tạo và lưu mã OTP vào cơ sở dữ liệu
+            otp = generate_unique_otp()
+            # print(otp)
+            OTP.objects.create(employee=user, otp_code=otp)
+
+            # Gửi mã OTP qua email
+            send_mail(
+                "[Exnodes] Mã OTP để xác nhận đổi mật khẩu",
+                f"Mã OTP của bạn là: {otp}",
+                "",
+                [user.email],
+                fail_silently=False,
+            )
+
+            return {"message": "Mã OTP đã được gửi qua email của bạn."}
+        else:
+            raise serializers.ValidationError("Không tìm thấy người dùng với thông tin được cung cấp.")
+    
+def save_uploaded_file(file, folder_path):
+    """
+    Hàm này nhận một tệp đã được tải lên và một đường dẫn đến thư mục, sau đó lưu tệp vào thư mục đã chỉ định.
+    :param file: Tệp đã được tải lên.
+    :param folder_path: Đường dẫn đến thư mục để lưu trữ tệp.
+    :return: Đường dẫn tuyệt đối đến tệp sau khi lưu.
+    """
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    
+    fs = FileSystemStorage(location=folder_path)
+    filename = fs.save(file.name, file)
+    return fs.path(filename)
+
+def upload_file(request):
+    if request.method == 'PUT' and request.FILES['image']:
+        uploaded_file = request.FILES['image']
+        folder_path = os.path.join(settings.MEDIA_ROOT, 'images', 'employee')
+        
+        # Kiểm tra xem tệp đã tải lên là một tệp ảnh hợp lệ
+        if isinstance(uploaded_file, InMemoryUploadedFile) and uploaded_file.content_type.startswith('image'):
+            # saved_path = save_uploaded_file(uploaded_file, folder_path)
+            thread = threading.Thread(target=save_uploaded_file, args=(uploaded_file, folder_path))
+            thread.start()
+            thread.join()
+
+            # Đợi cho đến khi luồng hoàn thành trước khi tiếp tục
+            return "Image upload started in background thread."
+        else:
+            return "Invalid file type or no file uploaded."
+    else:
+        return "No file uploaded."

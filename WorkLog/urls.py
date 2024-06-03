@@ -29,6 +29,7 @@ urlpatterns = [
             path('', include('LeaveRequest.urls')),
             path('', include('Timekeeping.urls')),
             path('', include('Salary.urls')),
+            path('', include('Notification.urls')),
         ],
 ))
 ]

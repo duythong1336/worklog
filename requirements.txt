@@ -13,6 +13,17 @@ django-db-logger==0.1.12
 django-mptt==0.14.0
 djangorestframework-recursive==0.1.2
 django-pandas==0.6.6
-celery==5.4.0
+# celery==5.4.0
 openpyxl==3.1.2
-
+# django-celery-results==2.2.0
+redis==3.5.3
+rq-scheduler==0.13.1
+rq==1.16.2
+django-rq==2.10.2
+django-rq-scheduler==2023.9.0
+django-crontab==0.7.1
+firebase-admin==5.2.0
+fcm-django
+gspread==6.0.0
+google-auth
+pillow==10.3.0

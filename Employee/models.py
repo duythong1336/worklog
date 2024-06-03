@@ -11,10 +11,11 @@ class GenderChoices(models.TextChoices):
 class Employee(AbstractUser):
     is_admin = models.BooleanField(default=False)
     gender = models.CharField(max_length=7, choices=GenderChoices.choices)
-    phone_number = models.IntegerField()
-    address = models.CharField(max_length=255)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='employees')
+    phone_number = models.IntegerField(null=True)
+    address = models.CharField(max_length=255, null=True)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='employees', default=1)
     salary = models.DecimalField(max_digits=11, decimal_places=2, default = 0.0)
+    image = models.ImageField(upload_to='employee/', blank=True, null=True)
     
 
     def __str__(self):

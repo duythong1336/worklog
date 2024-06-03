@@ -45,9 +45,11 @@ ENV PYTHONUNBUFFERED 1
 RUN pip install --upgrade pip
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
+# RUN pip install fcm-django
 # RUN pip install celery
 # RUN pip install openpyxl
 
+# CMD celery -A WorkLog worker -l info
 
 
 # copy entrypoint.sh
@@ -58,7 +60,6 @@ RUN chmod +x entrypoint.sh
 # copy project
 COPY . .
 
-CMD celery -A WorkLog worker --loglevel=info
 
 
 EXPOSE 80

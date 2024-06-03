@@ -20,7 +20,7 @@ class LoginView(APIView):
         else:
             response_data = format_respone(success=False, status=status.HTTP_400_BAD_REQUEST, message="Invalid data", data=serializer.errors)
             return Response(response_data, status=response_data.get('status'))
-        
+            
 class JWTTokenListView(APIView):
     # permission_classes = [IsAdminUser]
     permission_classes = [IsAdminOrStaff]

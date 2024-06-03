@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from .models import JWTToken
 from datetime import datetime, timedelta
+from Notification.models import DeviceToken
 import uuid
 
 def generate_server_device_id():
@@ -91,6 +92,8 @@ class LoginSerializer(serializers.Serializer):
             is_expired=token_payload['is_expired'],
         )
         jwt_token.save()
+        
+        # register_device_for_user(employee, self.context['request'])
 
         return {
             'username': employee.username,
@@ -100,3 +103,39 @@ class LoginSerializer(serializers.Serializer):
                 'access': token,
             }
         }
+        
+# def gather_device_info(request):
+#     # Lấy thông tin thiết bị từ tiêu đề của yêu cầu
+#     # platform = request.headers.get('User-Agent')  # Lấy thông tin về trình duyệt
+#     # language = request.headers.get('Accept-Language')  # Lấy thông tin về ngôn ngữ
+
+#     platform = 'WEB'
+#     language = 'en'
+#     token = 'test'
+
+#     # Tạo dictionary chứa thông tin thiết bị
+#     device_info = {
+#         'platform': platform,
+#         'language': language,
+#         'token': token
+#     }
+
+#     return device_info
+
+# def register_device_for_user(employee, request):
+#     # Thu thập thông tin thiết bị
+#     device_info = gather_device_info(request)
+
+#     if device_info:
+#         # Lưu thông tin đăng ký thiết bị vào cơ sở dữ liệu
+#         save_device_info(employee, device_info)
+
+
+# def save_device_info(employee, device_info):
+#     # Lưu thông tin thiết bị vào cơ sở dữ liệu
+#         DeviceToken.objects.create(
+#         user=employee,
+#         token=device_info['token'],
+#         platform=device_info['platform'],   
+#         language=device_info['language'],
+#         )

@@ -12,7 +12,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
-from celery.schedules import crontab
+import os
+# from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,18 +30,28 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
+# CELERY_BROKER_URL = 'redis://redis:6379/0'
+# CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 
-CELERY_BEAT_SCHEDULE = {
-    'create-previous-month-salaries': {
-        'task': 'Salary.tasks.create_previous_month_salaries',
-        'schedule': crontab(day_of_month='1', hour='0', minute='0'),  # Chạy vào ngày 1 và giờ 0:00
-        # 'schedule': crontab(hour=9, minute=49),
-    },
-}
-
+# CELERY_BEAT_SCHEDULE = {
+#     'run_daily_task': {
+#         'task': 'Salary.tasks.create_previous_month_salaries',
+#         # 'schedule': crontab(day_of_month='1', hour='0', minute='0'),  # Chạy vào ngày 1 và giờ 0:00
+#         'schedule': crontab(hour=16, minute=14),
+#     },
+# }
 
 # Application definition
+
+# Đường dẫn tới thư mục lưu trữ tệp
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# URL public cho các tệp lưu trong MEDIA_ROOT
+MEDIA_URL = '/media/'
+
+# Cấu hình DEFAULT_FILE_STORAGE để sử dụng FileSystemStorage
+DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -59,7 +70,27 @@ INSTALLED_APPS = [
     'Timekeeping',
     'OTP',
     'Salary',
+    'rq_scheduler',
+    # 'django-rq',
+    'django_crontab',
+    'fcm_django',
+    'Notification',
+    # 'corsheaders'
 ]
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY": "AAAAoT_O-rA:APA91bGtRqU0aNIYb_TaHxWX7XlRMYaSeJdYx2LujNZWJnHtIfjnPFjE8TQ2OPNAhDcHvF_eM5Ak4Q_2hlI7R14OAN6c3szGsjf7UeIsa58CoFQzcATSpwAdUVufTyDrsYOAX5jmZZtK",
+}
+
+CRONJOBS = [
+    # ('30 10 * * *', 'Salary.tasks.create_previous_month_salaries'),  # Chạy vào 10:25 hàng ngày
+    ('0 0 1 * *', 'Salary.tasks.create_previous_month_salaries'),  # Chạy vào lúc 00:00 ngày đầu tiên của mỗi tháng
+    # ('* * * * *', 'Salary.tasks.create_previous_month_salaries'),
+    #curl -X POST http://localhost:8000/api/salary/create/
+]
+
+# RQ_SCHEDULER_QUEUE = 'default'
+# RQ_SCHEDULER_INTERVAL = 60
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -69,8 +100,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'share.CheckTokenExpirationMiddleware.CheckTokenExpirationMiddleware'
+    'share.CheckTokenExpirationMiddleware.CheckTokenExpirationMiddleware',
+    # 'corsheaders.middleware.CorsMiddleware',
 ]
+
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:8000',
+#     'http://127.0.0.1:8000'
+# ]
 
 ROOT_URLCONF = 'WorkLog.urls'
 
@@ -135,6 +172,8 @@ REST_FRAMEWORK = {
         
     ],
 }
+
+ALLOWED_HOSTS = ['192.168.31.215', 'localhost', '127.0.0.1']
 
 AUTH_USER_MODEL = 'Employee.Employee'
 
